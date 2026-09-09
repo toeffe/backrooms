@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>THE BACKROOMS</title>
+<style>
+  :root {
+    --br-yellow: #c9b458;
+    --br-dim: #8a7a3a;
+    --br-off: #d8d2b0;
+    --br-black: #05050300;
+    --br-red: #a33;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #000;
+    overflow: hidden;
+    font-family: 'Courier New', ui-monospace, monospace;
+    color: #d8d2b0;
+    cursor: default;
+    user-select: none;
+  }
+  #app { position: relative; width: 100vw; height: 100vh; }
+  canvas#scene {
+    display: block; width: 100%; height: 100%;
+    filter: contrast(1.05) saturate(1.12) sepia(0.12) hue-rotate(-4deg);
+  }
+  #analog-film {
+    position: absolute; inset: 0; z-index: 8;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+    opacity: 0.14;
+    background-image:
+      repeating-linear-gradient(
+        0deg,
+        rgba(20, 16, 8, 0.07) 0px,
+        transparent 1px,
+        transparent 3px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        rgba(255, 236, 180, 0.04) 0px,
+        transparent 2px
+      );
+  }
+
+  /* ---------- Title / Menu ---------- */
+  #menu {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at center, #16150c 0%, #030302 80%);
+    z-index: 50;
+    letter-spacing: 0.08em;
+  }
+  #menu .flicker {
+    animation: flicker 4.5s infinite;
+  }
+  @keyframes flicker {
+    0%, 92%, 100% { opacity: 1; }
+    93% { opacity: 0.4; }
+    94% { opacity: 1; }
+    95% { opacity: 0.2; }
+    96% { opacity: 1; }
+  }
+  #menu h1 {
+    font-size: 2.4rem;
+    font-weight: 400;
+    color: var(--br-yellow);
+    text-shadow: 0 0 18px rgba(201,180,88,0.35);
+    margin-bottom: 0.4rem;
+  }
+  #menu .sub {
+    font-size: 0.75rem;
+    color: #6b6449;
+    margin-bottom: 3rem;
+  }
+  #menu button {
+    background: transparent;
+    border: 1px solid #4c4630;
+    color: #d8d2b0;
+    padding: 0.7rem 2.4rem;
+    font-family: inherit;
+    font-size: 0.85rem;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    margin-bottom: 0.8rem;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  #menu button:hover { border-color: var(--br-yellow); color: var(--br-yellow); }
+  #menu .hint {
+    position: absolute; bottom: 2rem; font-size: 0.68rem; color: #4a4530;
+    max-width: 30rem; text-align: center; line-height: 1.6;
+  }
+
+  /* ---------- HUD (minimal by design) ---------- */
+  #hud {
+    position: absolute; inset: 0; pointer-events: none;
+    display: none;
+    z-index: 10;
+  }
+  #hud.active { display: block; }
+
+  #crosshair {
+    position: absolute; top: 50%; left: 50%;
+    width: 4px; height: 4px;
+    background: rgba(216,210,176,0.5);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  #crosshair.show { opacity: 1; }
+
+  #interact-prompt {
+    position: absolute; top: 56%; left: 50%; transform: translate(-50%, 0);
+    font-size: 0.75rem; color: #cfc8a0;
+    background: rgba(0,0,0,0.55);
+    padding: 0.35rem 0.7rem;
+    opacity: 0; transition: opacity 0.2s;
+    white-space: nowrap;
+  }
+  #interact-prompt.show { opacity: 1; }
+
+  #zone-label {
+    position: absolute; top: 1.05rem; left: 50%; transform: translateX(-50%);
+    font-size: 0.62rem; color: #8a7a48; letter-spacing: 0.16em;
+    text-transform: uppercase;
+    text-shadow: 0 0 8px rgba(0,0,0,0.85);
+    opacity: 0; transition: opacity 0.7s;
+    pointer-events: none;
+  }
+  #zone-label.show { opacity: 0.8; }
+
+  #noclip-flag {
+    position: absolute; bottom: 1.1rem; right: 1.2rem;
+    font-size: 0.68rem; color: #c4b070; letter-spacing: 0.12em;
+    opacity: 0; pointer-events: none;
+  }
+  #noclip-flag.show { opacity: 0.85; }
+
+  #vitals {
+    position: absolute; bottom: 1.1rem; left: 1.2rem;
+    font-size: 0.68rem; color: #776f4e;
+    line-height: 1.6;
+    opacity: 0.85;
+  }
+  #vitals .bar-row { display: flex; align-items: center; gap: 0.5rem; }
+  #vitals .bar {
+    width: 90px; height: 5px; background: #262215; position: relative;
+  }
+  #vitals .bar-fill {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: #8a7a3a;
+    transition: width 0.3s;
+  }
+  #vitals .bar-fill.low { background: var(--br-red); }
+
+  #message-log {
+    position: absolute; top: 1.1rem; left: 1.2rem;
+    max-width: 22rem;
+    font-size: 0.72rem; color: #a89e78;
+    line-height: 1.7;
+  }
+  #message-log .line {
+    opacity: 0;
+    animation: fadeIn 0.6s forwards;
+    text-shadow: 0 0 6px rgba(0,0,0,0.9);
+    margin-bottom: 0.15rem;
+  }
+  @keyframes fadeIn { to { opacity: 0.9; } }
+
+  #vignette {
+    position: absolute; inset: 0;
+    box-shadow: inset 0 0 14vw 2vw rgba(50, 38, 12, 0.28);
+    pointer-events: none;
+  }
+  #fear-vignette {
+    position: absolute; inset: 0;
+    box-shadow: inset 0 0 18vw 6vw rgba(60,0,0,0);
+    pointer-events: none;
+    transition: box-shadow 1.2s ease;
+  }
+
+  /* Full-screen jumpscare flash */
+  #jumpscare {
+    position: absolute; inset: 0;
+    z-index: 45;
+    pointer-events: none;
+    opacity: 0;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #jumpscare.flash {
+    animation: js-flash 0.55s ease-out forwards;
+  }
+  #jumpscare .js-face {
+    width: 42vmin;
+    height: 42vmin;
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 45%, #1a1208 0%, #050302 55%, #000 100%);
+    position: relative;
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  #jumpscare.flash .js-face {
+    animation: js-face 0.5s ease-out forwards;
+  }
+  #jumpscare .js-eye {
+    position: absolute;
+    top: 38%;
+    width: 14%;
+    height: 10%;
+    background: #ffe08a;
+    border-radius: 50%;
+    box-shadow: 0 0 18px 6px rgba(255, 200, 80, 0.85);
+  }
+  #jumpscare .js-eye.l { left: 22%; }
+  #jumpscare .js-eye.r { right: 22%; }
+  #jumpscare .js-mouth {
+    position: absolute;
+    bottom: 22%;
+    left: 20%;
+    right: 20%;
+    height: 6%;
+    background: #2a1810;
+    border-radius: 0 0 40% 40%;
+    box-shadow: inset 0 4px 0 #110a06;
+  }
+  @keyframes js-flash {
+    0% { opacity: 1; background: #fff; }
+    8% { opacity: 1; background: #000; }
+    18% { opacity: 1; background: #1a0505; }
+    100% { opacity: 0; background: #000; }
+  }
+  @keyframes js-face {
+    0% { opacity: 0; transform: scale(0.3) translateY(10%); }
+    12% { opacity: 1; transform: scale(1.15) translateY(0); }
+    45% { opacity: 1; transform: scale(1) translateY(0); }
+    100% { opacity: 0; transform: scale(1.4) translateY(-5%); }
+  }
+
+  #fade {
+    position: absolute; inset: 0; background: #000;
+    opacity: 1; pointer-events: none; z-index: 40;
+    transition: opacity 2.2s ease;
+  }
+  #fade.clear { opacity: 0; pointer-events: none; }
+
+  /* ---------- Camcorder overlay ---------- */
+  #camcorder {
+    position: absolute; inset: 0; z-index: 15;
+    display: none;
+    pointer-events: none;
+  }
+  #camcorder.active { display: block; }
+  #camcorder .frame {
+    position: absolute; inset: 0;
+    border: 2px solid rgba(0,0,0,0.0);
+  }
+  #camcorder .corner-ui {
+    position: absolute; top: 1rem; left: 1rem;
+    font-size: 0.72rem; color: #ff5a5a;
+    text-shadow: 0 0 4px rgba(0,0,0,0.8);
+  }
+  #camcorder .corner-ui .rec-dot {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: #ff2b2b; margin-right: 0.4rem;
+    animation: recblink 1s infinite;
+  }
+  @keyframes recblink { 50% { opacity: 0.15; } }
+  #camcorder .playback {
+    position: absolute; top: 1rem; left: 50%; transform: translateX(-50%);
+    font-size: 0.72rem; color: #d8d2b0; letter-spacing: 0.2em;
+    opacity: 0; text-shadow: 0 0 6px #000;
+  }
+  #camcorder .playback.show { opacity: 0.85; }
+  #camcorder .timestamp {
+    position: absolute; top: 1rem; right: 1rem;
+    font-size: 0.7rem; color: #d8d2b0; text-shadow: 0 0 4px rgba(0,0,0,0.8);
+  }
+  #camcorder .battery {
+    position: absolute; bottom: 1rem; right: 1rem;
+    font-size: 0.68rem; color: #d8d2b0; text-shadow: 0 0 4px rgba(0,0,0,0.8);
+  }
+  #camcorder .noise-canvas {
+    position: absolute; inset: 0;
+    mix-blend-mode: soft-light;
+    opacity: 0.55;
+    pointer-events: none;
+  }
+  #camcorder .scanlines {
+    position: absolute; inset: 0;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        rgba(0,0,0,0.0) 0px,
+        rgba(0,0,0,0.0) 1px,
+        rgba(0,0,0,0.14) 2px,
+        rgba(0,0,0,0.0) 3px
+      ),
+      repeating-linear-gradient(
+        to right,
+        rgba(0,0,0,0.0) 0px,
+        rgba(0,0,0,0.0) 3px,
+        rgba(255,255,200,0.015) 4px
+      );
+    pointer-events: none;
+  }
+  #camcorder .vignette-cc {
+    position: absolute; inset: 0;
+    box-shadow:
+      inset 0 0 12vw 5vw rgba(0,0,0,0.92),
+      inset 0 0 2vw 0.4vw rgba(20,40,10,0.25);
+    pointer-events: none;
+  }
+  /* Chromatic aberration edges */
+  #camcorder .chroma {
+    position: absolute; inset: 0;
+    background: linear-gradient(
+      90deg,
+      rgba(255,40,40,0.05) 0%,
+      transparent 10%,
+      transparent 90%,
+      rgba(40,80,255,0.06) 100%
+    );
+    mix-blend-mode: screen;
+    pointer-events: none;
+  }
+  #camcorder .tracking {
+    position: absolute; left: 0; right: 0; height: 18px;
+    top: 42%;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      rgba(180,200,140,0.12) 40%,
+      rgba(0,0,0,0.35) 50%,
+      rgba(180,200,140,0.12) 60%,
+      transparent
+    );
+    opacity: 0;
+    animation: tracking-roll 7s infinite linear;
+    pointer-events: none;
+  }
+  @keyframes tracking-roll {
+    0%, 88%, 100% { opacity: 0; transform: translateY(0); }
+    90% { opacity: 0.7; transform: translateY(-8vh); }
+    94% { opacity: 0.9; transform: translateY(12vh); }
+    97% { opacity: 0.4; transform: translateY(4vh); }
+  }
+
+  /* Classic VHS / found-footage grade applied to the 3D canvas while recording */
+  canvas#scene.vhs-filter {
+    filter:
+      contrast(1.18)
+      saturate(0.72)
+      brightness(0.92)
+      sepia(0.18)
+      hue-rotate(-8deg);
+  }
+
+  /* ---------- Inventory ---------- */
+  #inventory {
+    position: absolute; inset: 0; z-index: 30;
+    display: none;
+    background: rgba(4,4,2,0.88);
+    align-items: center; justify-content: center;
+  }
+  #inventory.active { display: flex; }
+  #inventory .panel {
+    width: 34rem; max-width: 90vw;
+  }
+  #inventory h2 {
+    font-size: 0.9rem; letter-spacing: 0.15em; color: var(--br-yellow);
+    margin-bottom: 1.2rem; font-weight: 400;
+  }
+  #inventory .grid {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.6rem;
+  }
+  #inventory .slot {
+    aspect-ratio: 1; border: 1px solid #3a3520;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.62rem; color: #8a8360; text-align: center; padding: 0.3rem;
+    position: relative;
+  }
+  #inventory .slot.filled { border-color: #6b6440; color: #d8d2b0; cursor: pointer; }
+  #inventory .slot.usable { border-color: #8a7a3a; }
+  #inventory .detail {
+    margin-top: 1.2rem; font-size: 0.7rem; color: #a89e78; min-height: 3rem; line-height: 1.6;
+  }
+  #inventory .close-hint { margin-top: 1rem; font-size: 0.62rem; color: #55503a; }
+
+  /* ---------- Map ---------- */
+  #mapview {
+    position: absolute; inset: 0; z-index: 30;
+    display: none;
+    background: rgba(4,4,2,0.9);
+    align-items: center; justify-content: center;
+    flex-direction: column;
+  }
+  #mapview.active { display: flex; }
+  #mapview canvas { border: 1px solid #3a3520; background: #0a0906; }
+  #mapview .cap { margin-top: 0.8rem; font-size: 0.65rem; color: #776f4e; max-width: 26rem; text-align: center; line-height: 1.6; }
+
+  #loading {
+    position: absolute; inset: 0; z-index: 60;
+    background: #000; display: flex; align-items: center; justify-content: center;
+    color: #4a4530; font-size: 0.75rem; letter-spacing: 0.15em;
+  }
+
+  /* ---------- Pause ---------- */
+  #pause-menu {
+    position: absolute; inset: 0;
+    display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(3, 3, 2, 0.82);
+    z-index: 55;
+    letter-spacing: 0.08em;
+  }
+  #pause-menu.active { display: flex; }
+  #pause-menu h1 {
+    font-size: 1.8rem;
+    font-weight: 400;
+    color: var(--br-yellow);
+    text-shadow: 0 0 18px rgba(201,180,88,0.35);
+    margin-bottom: 0.4rem;
+  }
+  #pause-menu .sub {
+    font-size: 0.72rem;
+    color: #6b6449;
+    margin-bottom: 2.2rem;
+    letter-spacing: 0.14em;
+  }
+  #pause-menu button {
+    background: transparent;
+    border: 1px solid #4c4630;
+    color: #d8d2b0;
+    padding: 0.7rem 2.4rem;
+    font-family: inherit;
+    font-size: 0.85rem;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    margin-bottom: 0.8rem;
+    min-width: 14rem;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  #pause-menu button:hover { border-color: var(--br-yellow); color: var(--br-yellow); }
+
+  #click-to-play {
+    position: absolute; inset: 0;
+    display: none;
+    align-items: center; justify-content: center;
+    background: rgba(3, 3, 2, 0.55);
+    z-index: 20;
+    font-size: 0.85rem;
+    letter-spacing: 0.16em;
+    color: var(--br-yellow);
+    text-shadow: 0 0 12px rgba(201,180,88,0.35);
+    cursor: pointer;
+  }
+  #click-to-play.active { display: flex; }
+
+  #debug {
+    position: absolute; top: 0.7rem; left: 0.8rem;
+    z-index: 18;
+    display: none;
+    font-size: 0.62rem;
+    color: #8a7a48;
+    letter-spacing: 0.04em;
+    text-shadow: 0 0 6px #000;
+    pointer-events: none;
+    max-width: 42rem;
+    line-height: 1.55;
+  }
+  #debug.show { display: block; }
+
+  /* ---------- Settings ---------- */
+  #settings-panel {
+    position: absolute; inset: 0; z-index: 56;
+    display: none;
+    background: rgba(4,4,2,0.92);
+    align-items: center; justify-content: center;
+  }
+  #settings-panel.active { display: flex; }
+  #settings-panel .panel {
+    width: 26rem; max-width: 90vw;
+  }
+  #settings-panel h2 {
+    font-size: 0.9rem; letter-spacing: 0.15em; color: var(--br-yellow);
+    margin-bottom: 1.4rem; font-weight: 400;
+  }
+  #settings-panel .row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.85rem;
+    font-size: 0.72rem;
+    color: #a89e78;
+    letter-spacing: 0.1em;
+  }
+  #settings-panel .row span { min-width: 7rem; }
+  #settings-panel input[type="range"] {
+    flex: 1;
+    accent-color: var(--br-yellow);
+  }
+  #settings-panel input[type="checkbox"] {
+    accent-color: var(--br-yellow);
+    width: 1rem; height: 1rem;
+  }
+  #settings-panel .close-hint { margin-top: 1.2rem; font-size: 0.62rem; color: #55503a; }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="scene"></canvas>
+  <div id="analog-film"></div>
+
+  <div id="loading">INITIALIZING…</div>
+  <div id="fade"></div>
+
+  <div id="menu">
+    <h1 class="flicker">THE BACKROOMS</h1>
+    <div class="sub">— LEVEL 0 —</div>
+    <button id="btn-new">NEW GAME</button>
+    <button id="btn-continue">CONTINUE</button>
+    <div class="hint">
+      WASD move · MOUSE look · SHIFT sprint · C crouch · E interact<br/>
+      F flashlight · V camcorder · TAB inventory · M map · ESC pause
+    </div>
+  </div>
+
+  <div id="pause-menu">
+    <h1>PAUSED</h1>
+    <div class="sub">THE LIGHTS KEEP RUNNING.</div>
+    <button id="btn-resume">RESUME</button>
+    <button id="btn-settings">SETTINGS</button>
+    <button id="btn-restart">RESTART RUN</button>
+    <button id="btn-main-menu">MAIN MENU</button>
+  </div>
+
+  <div id="settings-panel">
+    <div class="panel">
+      <h2>SETTINGS</h2>
+      <label class="row"><span>HUM</span><input id="set-master" type="range" min="0" max="100" /></label>
+      <label class="row"><span>NOISES</span><input id="set-sfx" type="range" min="0" max="100" /></label>
+      <label class="row"><span>LOOK</span><input id="set-look" type="range" min="10" max="40" /></label>
+      <label class="row"><span>FIELD</span><input id="set-fov" type="range" min="60" max="95" /></label>
+      <label class="row"><span>INVERT Y</span><input id="set-inverty" type="checkbox" /></label>
+      <label class="row"><span>STILLNESS</span><input id="set-motion" type="checkbox" /></label>
+      <div class="close-hint">ESC returns to the pause. The hum does not stop.</div>
+    </div>
+  </div>
+
+  <div id="click-to-play">Click to continue</div>
+
+  <div id="debug"></div>
+
+  <div id="hud">
+    <div id="crosshair"></div>
+    <div id="interact-prompt"></div>
+    <div id="vignette"></div>
+    <div id="fear-vignette"></div>
+    <div id="jumpscare">
+      <div class="js-face">
+        <div class="js-eye l"></div>
+        <div class="js-eye r"></div>
+        <div class="js-mouth"></div>
+      </div>
+    </div>
+    <div id="message-log"></div>
+    <div id="zone-label"></div>
+    <div id="noclip-flag">NOCLIP</div>
+    <div id="vitals">
+      <div class="bar-row"><span>FLASHLIGHT</span><div class="bar"><div class="bar-fill" id="bar-flashlight" style="width:100%"></div></div></div>
+      <div class="bar-row"><span>STAMINA&nbsp;&nbsp;&nbsp;</span><div class="bar"><div class="bar-fill" id="bar-stamina" style="width:100%"></div></div></div>
+    </div>
+  </div>
+
+  <div id="camcorder">
+    <div class="noise-canvas"><canvas id="noise-cv"></canvas></div>
+    <div class="scanlines"></div>
+    <div class="chroma"></div>
+    <div class="tracking"></div>
+    <div class="vignette-cc"></div>
+    <div class="corner-ui"><span class="rec-dot"></span>REC</div>
+    <div class="playback" id="cc-playback">PLAYBACK</div>
+    <div class="timestamp" id="cc-timestamp">1996-04-12  00:00:00</div>
+    <div class="battery" id="cc-battery">BAT ██████░░</div>
+  </div>
+
+  <div id="inventory">
+    <div class="panel">
+      <h2>INVENTORY</h2>
+      <div class="grid" id="inv-grid"></div>
+      <div class="detail" id="inv-detail">Select an item.</div>
+      <div class="close-hint">TAB to close</div>
+    </div>
+  </div>
+
+  <div id="mapview">
+    <canvas id="map-canvas" width="480" height="480"></canvas>
+    <div class="cap">Your own reconstruction of what you've seen. It will not always be accurate.</div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.js"
+  }
+}
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
